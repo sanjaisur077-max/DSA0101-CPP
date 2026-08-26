@@ -1,0 +1,83 @@
+#include <iostream>
+#include <string>
+using namespace std;
+
+class BankAccount
+{
+    string name;
+    int accountNo;
+    string type;
+    double balance;
+
+public:
+
+    // Constructor to assign initial values
+    BankAccount(string n, int acc, string t, double bal)
+    {
+        name = n;
+        accountNo = acc;
+        type = t;
+        balance = bal;
+    }
+
+    // Function to deposit amount
+    void deposit(int acc, string n, double amount)
+    {
+        if (acc == accountNo && n == name)
+        {
+            balance = balance + amount;
+            cout << "Amount deposited successfully." << endl;
+        }
+        else
+        {
+            cout << "Invalid account number or name!" << endl;
+        }
+    }
+
+    // Function to withdraw amount
+    void withdraw(double amount)
+    {
+        if (amount <= balance)
+        {
+            balance = balance - amount;
+            cout << "Amount withdrawn successfully." << endl;
+        }
+        else
+        {
+            cout << "Insufficient balance!" << endl;
+        }
+    }
+
+    // Function to display name and balance
+    void display()
+    {
+        cout << "\nName: " << name << endl;
+        cout << "Balance: Rs. " << balance << endl;
+    }
+
+    // Destructor
+    ~BankAccount()
+    {
+        cout << "\nBank account object destroyed." << endl;
+    }
+};
+
+int main()
+{
+    // Creating object using constructor
+    BankAccount b("Sanjai", 12345, "Savings", 10000);
+
+    b.display();
+
+    // Deposit after checking account number and name
+    b.deposit(12345, "Sanjai", 5000);
+
+    b.display();
+
+    // Withdraw amount
+    b.withdraw(3000);
+
+    b.display();
+
+    return 0;
+}

@@ -1,0 +1,86 @@
+#include <iostream>
+using namespace std;
+
+class FLOAT
+{
+    float value;
+
+public:
+
+    // Constructor
+    FLOAT(float v = 0)
+    {
+        value = v;
+    }
+
+    // Overload +
+    FLOAT operator+(FLOAT f)
+    {
+        return FLOAT(value + f.value);
+    }
+
+    // Overload -
+    FLOAT operator-(FLOAT f)
+    {
+        return FLOAT(value - f.value);
+    }
+
+    // Overload *
+    FLOAT operator*(FLOAT f)
+    {
+        return FLOAT(value * f.value);
+    }
+
+    // Overload /
+    FLOAT operator/(FLOAT f)
+    {
+        return FLOAT(value / f.value);
+    }
+
+    // Display function
+    void display()
+    {
+        cout << value << endl;
+    }
+};
+
+int main()
+{
+    FLOAT a, b, result;
+
+    float x, y;
+
+    cout << "Enter first floating-point number: ";
+    cin >> x;
+
+    cout << "Enter second floating-point number: ";
+    cin >> y;
+
+    a = FLOAT(x);
+    b = FLOAT(y);
+
+    cout << "\nAddition: ";
+    result = a + b;
+    result.display();
+
+    cout << "Subtraction: ";
+    result = a - b;
+    result.display();
+
+    cout << "Multiplication: ";
+    result = a * b;
+    result.display();
+
+    if (y != 0)
+    {
+        cout << "Division: ";
+        result = a / b;
+        result.display();
+    }
+    else
+    {
+        cout << "Division: Cannot divide by zero." << endl;
+    }
+
+    return 0;
+}
