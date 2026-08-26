@@ -1,0 +1,92 @@
+#include <iostream>
+#include <string>
+using namespace std;
+
+// Base class 1
+class worker
+{
+protected:
+    int code;
+    string name;
+    float salary;
+
+public:
+    worker(int c, string n, float s)
+    {
+        code = c;
+        name = n;
+        salary = s;
+    }
+};
+
+// Base class 2
+class officer
+{
+protected:
+    float DA;
+    float HRA;
+
+public:
+    officer(float d, float h)
+    {
+        DA = d;
+        HRA = h;
+    }
+};
+
+// Derived class
+class manager : public worker, public officer
+{
+private:
+    float TA;
+    float gross_sal;
+
+public:
+    manager(int c, string n, float s, float d, float h)
+        : worker(c, n, s), officer(d, h)
+    {
+        TA = salary * 0.10;
+        gross_sal = salary + DA + HRA + TA;
+    }
+
+    void display()
+    {
+        cout << "\n----- Manager Details -----" << endl;
+        cout << "Code       : " << code << endl;
+        cout << "Name       : " << name << endl;
+        cout << "Salary     : Rs. " << salary << endl;
+        cout << "DA         : Rs. " << DA << endl;
+        cout << "HRA        : Rs. " << HRA << endl;
+        cout << "TA (10%)    : Rs. " << TA << endl;
+        cout << "Gross Salary: Rs. " << gross_sal << endl;
+    }
+};
+
+int main()
+{
+    int code;
+    string name;
+    float salary, DA, HRA;
+
+    cout << "Enter worker code: ";
+    cin >> code;
+
+    cout << "Enter worker name: ";
+    cin >> ws;
+    getline(cin, name);
+
+    cout << "Enter salary: ";
+    cin >> salary;
+
+    cout << "Enter DA: ";
+    cin >> DA;
+
+    cout << "Enter HRA: ";
+    cin >> HRA;
+
+    manager m(code, name, salary, DA, HRA);
+
+    m.display();
+
+    return 0;
+}

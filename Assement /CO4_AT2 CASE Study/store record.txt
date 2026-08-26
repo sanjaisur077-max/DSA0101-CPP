@@ -1,0 +1,100 @@
+#include <iostream>
+#include <iomanip>
+#include <string>
+using namespace std;
+
+// Base class
+class Item
+{
+protected:
+    int item_no;
+    string name;
+    float price;
+
+public:
+    void input()
+    {
+        cout << "Enter Item Number: ";
+        cin >> item_no;
+
+        cout << "Enter Item Name: ";
+        cin >> ws;
+        getline(cin, name);
+
+        cout << "Enter Price: ";
+        cin >> price;
+    }
+};
+
+// Derived class
+class DiscountedItem : public Item
+{
+    float discount_percent;
+    float discount_amount;
+    float final_price;
+
+public:
+    void inputDiscount()
+    {
+        cout << "Enter Discount Percentage: ";
+        cin >> discount_percent;
+
+        discount_amount = price * discount_percent / 100;
+        final_price = price - discount_amount;
+    }
+
+    void display()
+    {
+        cout << left << setw(10) << item_no
+             << setw(20) << name
+             << setw(12) << fixed << setprecision(2) << price
+             << setw(12) << discount_percent
+             << setw(15) << final_price << endl;
+    }
+
+    float getFinalPrice()
+    {
+        return final_price;
+    }
+};
+
+int main()
+{
+    int n;
+    float total = 0;
+
+    cout << "Enter number of items: ";
+    cin >> n;
+
+    DiscountedItem items[100];
+
+    for (int i = 0; i < n; i++)
+    {
+        cout << "\nEnter details of Item " << i + 1 << endl;
+
+        items[i].input();
+        items[i].inputDiscount();
+    }
+
+    cout << "\n================ ITEM-WISE BILL ================\n";
+
+    cout << left << setw(10) << "Item No"
+         << setw(20) << "Name"
+         << setw(12) << "Price"
+         << setw(12) << "Discount"
+         << setw(15) << "Final Price" << endl;
+
+    cout << "---------------------------------------------------------------\n";
+
+    for (int i = 0; i < n; i++)
+    {
+        items[i].display();
+        total += items[i].getFinalPrice();
+    }
+
+    cout << "---------------------------------------------------------------\n";
+    cout << right << setw(50) << "Total Amount: Rs. "
+         << fixed << setprecision(2) << total << endl;
+
+    return 0;
+}
