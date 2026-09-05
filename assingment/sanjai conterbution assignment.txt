@@ -1,0 +1,493 @@
+/*
+ * =============================================================
+ *  Smart Civic Complaint and Public Safety Response System
+ *  Course: DSA0101 - Object Oriented Programming with C++
+ * =============================================================
+ *  Demonstrates:
+ *   - Classes, objects, access specifiers, member functions
+ *   - Static members, arrays of objects
+ *   - Default / parameterized / copy constructors, destructors
+ *   - Operator overloading (Complaint::operator<, ResponseTeam::operator+=,
+ *     Complaint::operator<< for report formatting)
+ *   - Multiple inheritance with a VIRTUAL BASE CLASS (diamond resolved)
+ *   - Abstract base class (ResponseTeam) with pure virtual functions
+ *   - Base-class pointers + virtual functions -> runtime polymorphism
+ * =============================================================
+ */
+
+#include <iostream>
+#include <string>
+#include <iomanip>
+#include <cstring>
+using namespace std;
+
+const int MAX_CITIZENS  = 50;
+const int MAX_COMPLAINTS = 100;
+const int MAX_TEAMS      = 10;
+
+/* ============================================================
+ *  CITIZEN CLASS
+ * ============================================================ */
+class Citizen {
+private:
+    int    citizenId;
+    string name;
+    string contact;
+    string address;
+    static int totalCitizens;      // static member: shared count
+
+public:
+    // default constructor
+    Citizen() : citizenId(0), name("N/A"), contact("N/A"), address("N/A") {
+        totalCitizens++;
+    }
+    // parameterized constructor
+    Citizen(int id, string nm, string ph, string addr)
+        : citizenId(id), name(nm), contact(ph), address(addr) {
+        totalCitizens++;
+    }
+    // copy constructor
+    Citizen(const Citizen &c)
+        : citizenId(c.citizenId), name(c.name), contact(c.contact), address(c.address) {
+        totalCitizens++;
+    }
+    // destructor
+    ~Citizen() { totalCitizens--; }
+
+    int getId() const { return citizenId; }
+    string getName() const { return name; }
+
+    void display() const {
+        cout << "  [Citizen #" << citizenId << "] " << name
+             << " | Contact: " << contact << " | Address: " << address << "\n";
+    }
+
+    static int getTotalCitizens() { return totalCitizens; }
+};
+int Citizen::totalCitizens = 0;
+
+/* ============================================================
+ *  COMPLAINT CLASS
+ *  Holds a dynamically allocated status-history log to justify
+ *  a deep-copy copy constructor and a resource-releasing destructor.
+ * ============================================================ */
+class Complaint {
+private:
+    int     complaintId;
+    int     citizenId;
+    string  type;              // Pothole, Streetlight, Garbage, WaterLeak, UnsafeSpace, Other
+    string  description;
+    int     urgencyLevel;      // 1 (low) - 5 (critical)
+    double  priorityScore;
+    string  status;            // Registered, Classified, Assigned, InProgress, Resolved
+    string  assignedTeam;
+
+    int*    history;           // dynamic array of status-codes (demonstrates dynamic memory)
+    int     historyCount;
+    int     historyCapacity;
+
+    static int totalComplaints;   // static: total ever created
+    static int activeComplaints;  // static: currently unresolved
+
+    void pushHistory(int code) {
+        if (historyCount == historyCapacity) {
+            int newCap = historyCapacity * 2;
+            int* bigger = new int[newCap];
+            for (int i = 0; i < historyCount; i++) bigger[i] = history[i];
+            delete[] history;
+            history = bigger;
+            historyCapacity = newCap;
+        }
+        history[historyCount++] = code;
+    }
+
+public:
+    // default constructor
+    Complaint()
+        : complaintId(0), citizenId(0), type("Unclassified"), description(""),
+          urgencyLevel(1), priorityScore(0.0), status("Registered"), assignedTeam("Unassigned"),
+          historyCount(0), historyCapacity(4) {
+        history = new int[historyCapacity];
+        pushHistory(0);
+        totalComplaints++;
+        activeComplaints++;
+    }
+
+    // parameterized constructor
+    Complaint(int id, int citId, string t, string desc, int urgency)
+        : complaintId(id), citizenId(citId), type(t), description(desc),
+          urgencyLevel(urgency), priorityScore(0.0), status("Registered"),
+          assignedTeam("Unassigned"), historyCount(0), historyCapacity(4) {
+        history = new int[historyCapacity];
+        pushHistory(0);
+        totalComplaints++;
+        activeComplaints++;
+    }
+
+    // copy constructor (deep copy of dynamic history array)
+    Complaint(const Complaint &c)
+        : complaintId(c.complaintId), citizenId(c.citizenId), type(c.type),
+          description(c.description), urgencyLevel(c.urgencyLevel),
+          priorityScore(c.priorityScore), status(c.status), assignedTeam(c.assignedTeam),
+          historyCount(c.historyCount), historyCapacity(c.historyCapacity) {
+        history = new int[historyCapacity];
+        for (int i = 0; i < historyCount; i++) history[i] = c.history[i];
+        totalComplaints++;
+        if (status != "Resolved") activeComplaints++;
+    }
+
+    // destructor: releases dynamically allocated history array
+    ~Complaint() {
+        delete[] history;
+        totalComplaints--;
+        if (status != "Resolved") activeComplaints--;
+    }
+
+    int getId() const { return complaintId; }
+    int getCitizenId() const { return citizenId; }
+    string getType() const { return type; }
+    string getStatus() const { return status; }
+    double getPriority() const { return priorityScore; }
+    string getAssignedTeam() const { return assignedTeam; }
+
+    // classify: normalizes/validates the complaint category
+    void classify() {
+        static const string known[] = {"Pothole", "Streetlight", "Garbage",
+                                        "WaterLeak", "UnsafeSpace"};
+        bool found = false;
+        for (const string &k : known) if (k == type) { found = true; break; }
+        if (!found) type = "Other";
+        status = "Classified";
+        pushHistory(1);
+    }
+
+    // calculate priority score from urgency + type weight
+    double calculatePriority() {
+        double typeWeight = 1.0;
+        if (type == "WaterLeak" || type == "UnsafeSpace") typeWeight = 1.5;
+        else if (type == "Pothole" || type == "Streetlight") typeWeight = 1.2;
+        priorityScore = urgencyLevel * typeWeight * 10.0;
+        return priorityScore;
+    }
+
+    void assignTeam(const string &teamName) {
+        assignedTeam = teamName;
+        status = "Assigned";
+        pushHistory(2);
+    }
+
+    void updateStatus(const string &newStatus) {
+        if (status == "Resolved" && newStatus != "Resolved") activeComplaints++;
+        status = newStatus;
+        if (newStatus == "Resolved") activeComplaints--;
+        pushHistory(3);
+    }
+
+    void display() const {
+        cout << "  [Complaint #" << complaintId << "] Citizen " << citizenId
+             << " | Type: " << type << " | Urgency: " << urgencyLevel
+             << " | Priority: " << fixed << setprecision(1) << priorityScore
+             << " | Status: " << status << " | Team: " << assignedTeam
+             << " | History steps: " << historyCount << "\n";
+    }
+
+    // ---- Operator overload #1: compare complaint priority ----
+    bool operator<(const Complaint &other) const {
+        return this->priorityScore < other.priorityScore;
+    }
+    bool operator>(const Complaint &other) const {
+        return this->priorityScore > other.priorityScore;
+    }
+
+    // ---- Operator overload #3 (bonus): stream insertion for reports ----
+    friend ostream& operator<<(ostream &os, const Complaint &c) {
+        os << "Complaint#" << c.complaintId << " [" << c.type << "] "
+           << "Priority=" << fixed << setprecision(1) << c.priorityScore
+           << " Status=" << c.status << " Team=" << c.assignedTeam;
+        return os;
+    }
+
+    static int getTotalComplaints() { return totalComplaints; }
+    static int getActiveComplaints() { return activeComplaints; }
+};
+int Complaint::totalComplaints  = 0;
+int Complaint::activeComplaints = 0;
+
+/* ============================================================
+ *  VIRTUAL-BASE-CLASS HIERARCHY (diamond resolution)
+ *
+ *          MunicipalUnit                <-- common virtual base
+ *          /            \
+ *  FieldOperationsUnit  EmergencyResponseUnit
+ *          \            /
+ *           ResponseTeam (abstract)      <-- diamond join point
+ * ============================================================ */
+
+class MunicipalUnit {
+protected:
+    string unitId;
+    string unitName;
+    static int totalUnits;
+public:
+    MunicipalUnit() : unitId("U0"), unitName("Unnamed Unit") { totalUnits++; }
+    MunicipalUnit(string id, string name) : unitId(id), unitName(name) { totalUnits++; }
+    virtual ~MunicipalUnit() { totalUnits--; }
+    string getUnitId() const { return unitId; }
+    string getUnitName() const { return unitName; }
+    static int getTotalUnits() { return totalUnits; }
+};
+int MunicipalUnit::totalUnits = 0;
+
+// virtually inherits MunicipalUnit so only ONE copy survives the diamond
+class FieldOperationsUnit : virtual public MunicipalUnit {
+protected:
+    int fieldCapacity;   // max simultaneous jobs the field crew can take
+public:
+    FieldOperationsUnit() : fieldCapacity(5) {}
+    FieldOperationsUnit(int cap) : fieldCapacity(cap) {}
+};
+
+class EmergencyResponseUnit : virtual public MunicipalUnit {
+protected:
+    int avgResponseMinutes;
+public:
+    EmergencyResponseUnit() : avgResponseMinutes(60) {}
+    EmergencyResponseUnit(int mins) : avgResponseMinutes(mins) {}
+};
+
+// ---- ABSTRACT BASE CLASS: defines common response-team behaviour ----
+class ResponseTeam : public FieldOperationsUnit, public EmergencyResponseUnit {
+protected:
+    int currentWorkload;
+    static int totalTeams;
+public:
+    ResponseTeam(string id, string name, int capacity, int respMinutes)
+        : MunicipalUnit(id, name),               // virtual base: init directly here in the
+          FieldOperationsUnit(capacity),          // truly most-derived concrete class chain
+          EmergencyResponseUnit(respMinutes),
+          currentWorkload(0) {
+        totalTeams++;
+    }
+    virtual ~ResponseTeam() { totalTeams--; }
+
+    // pure virtual functions -> makes ResponseTeam abstract
+    virtual void respondToComplaint(Complaint &c) = 0;
+    virtual string getTeamType() const = 0;
+
+    double workloadPercentage() const {
+        return fieldCapacity == 0 ? 0.0 : (double)currentWorkload / fieldCapacity * 100.0;
+    }
+
+    // ---- Operator overload #2: combine additional workload/capacity ----
+    ResponseTeam& operator+=(int extraWorkload) {
+        currentWorkload += extraWorkload;
+        if (currentWorkload > fieldCapacity) currentWorkload = fieldCapacity; // cap it
+        return *this;
+    }
+
+    virtual void displayTeam() const {
+        cout << "  [" << getTeamType() << "] " << unitName << " (" << unitId << ") "
+             << "| Capacity: " << fieldCapacity << " | Workload: " << currentWorkload
+             << " (" << fixed << setprecision(0) << workloadPercentage() << "%) "
+             << "| Avg Response: " << avgResponseMinutes << " min\n";
+    }
+
+    static int getTotalTeams() { return totalTeams; }
+};
+int ResponseTeam::totalTeams = 0;
+
+/* ---- Concrete municipal response teams (runtime polymorphism) ---- */
+class SanitationTeam : public ResponseTeam {
+public:
+    SanitationTeam(string id, string name, int cap, int resp)
+        : MunicipalUnit(id, name), ResponseTeam(id, name, cap, resp) {}
+    void respondToComplaint(Complaint &c) override {
+        cout << "  -> Sanitation crew dispatched to clear: " << c.getType() << "\n";
+        c.updateStatus("InProgress");
+        *this += 1;
+    }
+    string getTeamType() const override { return "Sanitation Team"; }
+};
+
+class RoadMaintenanceTeam : public ResponseTeam {
+public:
+    RoadMaintenanceTeam(string id, string name, int cap, int resp)
+        : MunicipalUnit(id, name), ResponseTeam(id, name, cap, resp) {}
+    void respondToComplaint(Complaint &c) override {
+        cout << "  -> Road crew dispatched to repair: " << c.getType() << "\n";
+        c.updateStatus("InProgress");
+        *this += 1;
+    }
+    string getTeamType() const override { return "Road Maintenance Team"; }
+};
+
+class ElectricalTeam : public ResponseTeam {
+public:
+    ElectricalTeam(string id, string name, int cap, int resp)
+        : MunicipalUnit(id, name), ResponseTeam(id, name, cap, resp) {}
+    void respondToComplaint(Complaint &c) override {
+        cout << "  -> Electrical crew dispatched to fix: " << c.getType() << "\n";
+        c.updateStatus("InProgress");
+        *this += 1;
+    }
+    string getTeamType() const override { return "Electrical Team"; }
+};
+
+class WaterTeam : public ResponseTeam {
+public:
+    WaterTeam(string id, string name, int cap, int resp)
+        : MunicipalUnit(id, name), ResponseTeam(id, name, cap, resp) {}
+    void respondToComplaint(Complaint &c) override {
+        cout << "  -> Water dept crew dispatched to fix: " << c.getType() << "\n";
+        c.updateStatus("InProgress");
+        *this += 1;
+    }
+    string getTeamType() const override { return "Water Team"; }
+};
+
+class PublicSafetyTeam : public ResponseTeam {
+public:
+    PublicSafetyTeam(string id, string name, int cap, int resp)
+        : MunicipalUnit(id, name), ResponseTeam(id, name, cap, resp) {}
+    void respondToComplaint(Complaint &c) override {
+        cout << "  -> Public Safety patrol dispatched to: " << c.getType() << "\n";
+        c.updateStatus("InProgress");
+        *this += 2;   // safety incidents consume more capacity
+    }
+    string getTeamType() const override { return "Public Safety Team"; }
+};
+
+/* ============================================================
+ *  HELPER: route a complaint type to a team index (dynamic dispatch)
+ * ============================================================ */
+int routeTeamIndex(const string &type) {
+    if (type == "Garbage") return 0;
+    if (type == "Pothole") return 1;
+    if (type == "Streetlight") return 2;
+    if (type == "WaterLeak") return 3;
+    if (type == "UnsafeSpace") return 4;
+    return 0; // default -> sanitation handles "Other"
+}
+
+/* ============================================================
+ *  MAIN MENU-DRIVEN APPLICATION
+ * ============================================================ */
+// Arrays hold dynamically-allocated objects (new), matching the brief's
+// requirement that complaint records be dynamically allocated and released
+// via destructors. This also avoids ever needing to copy-ASSIGN into an
+// already-constructed slot (which would require a hand-rolled operator=
+// just to keep the dynamic history array safe) -- each object here is
+// constructed exactly once and destroyed exactly once.
+Citizen*   citizens[MAX_CITIZENS] = { nullptr };
+int        citizenCount = 0;
+
+Complaint* complaints[MAX_COMPLAINTS] = { nullptr };
+int        complaintCount = 0;
+
+ResponseTeam* teams[MAX_TEAMS];   // array of BASE-CLASS POINTERS -> polymorphism
+int teamCount = 0;
+
+// ---- explicit demonstration of default / parameterized / copy constructors ----
+void constructorDemo() {
+    cout << "\n--- Constructor & Destructor Demonstration ---\n";
+    Citizen defaultCitizen;                                                   // default ctor
+    Citizen paramCitizen(999, "Demo Citizen", "0000000000", "Demo Address");   // parameterized ctor
+    Citizen copyCitizen(paramCitizen);                                        // copy ctor (deep copy of a POD-only object)
+    cout << "Default ctor  -> "; defaultCitizen.display();
+    cout << "Parameterized -> "; paramCitizen.display();
+    cout << "Copy ctor     -> "; copyCitizen.display();
+
+    Complaint defaultComplaint;                                               // default ctor
+    Complaint paramComplaint(9001, 999, "Pothole", "Demo pothole", 3);        // parameterized ctor
+    paramComplaint.calculatePriority();
+    Complaint copyComplaint(paramComplaint);                                  // copy ctor -> deep-copies dynamic history[]
+    cout << "Default ctor  -> "; defaultComplaint.display();
+    cout << "Parameterized -> "; paramComplaint.display();
+    cout << "Copy ctor     -> "; copyComplaint.display();
+    cout << "(operator<< ) -> " << paramComplaint << "\n";
+    cout << "Live citizens: " << Citizen::getTotalCitizens()
+         << " | Live complaints: " << Complaint::getTotalComplaints() << "\n";
+    cout << "--- demo objects now leave scope; destructors release them ---\n";
+}   // <- defaultCitizen, paramCitizen, copyCitizen, defaultComplaint, paramComplaint,
+    //    copyComplaint are all destroyed here (destructor + static-count decrement)
+
+void setupTeams() {
+    teams[teamCount++] = new SanitationTeam("T1", "Sanitation Squad A", 5, 90);
+    teams[teamCount++] = new RoadMaintenanceTeam("T2", "Road Crew A", 4, 180);
+    teams[teamCount++] = new ElectricalTeam("T3", "Electrical Unit A", 3, 60);
+    teams[teamCount++] = new WaterTeam("T4", "Water Dept A", 4, 120);
+    teams[teamCount++] = new PublicSafetyTeam("T5", "Safety Patrol A", 6, 15);
+}
+
+void cleanupTeams() {
+    for (int i = 0; i < teamCount; i++) delete teams[i]; // virtual destructor -> correct cleanup
+}
+
+void cleanupRecords() {
+    for (int i = 0; i < citizenCount; i++) delete citizens[i];
+    for (int i = 0; i < complaintCount; i++) delete complaints[i];
+}
+
+void registerCitizen() {
+    if (citizenCount >= MAX_CITIZENS) { cout << "Citizen registry full.\n"; return; }
+    int id; string name, contact, address;
+    cout << "Citizen ID: "; cin >> id;
+    cin.ignore();
+    cout << "Name: "; getline(cin, name);
+    cout << "Contact: "; getline(cin, contact);
+    cout << "Address: "; getline(cin, address);
+    citizens[citizenCount++] = new Citizen(id, name, contact, address);   // dynamic allocation
+    cout << "Citizen registered. Total citizens: " << Citizen::getTotalCitizens() << "\n";
+}
+
+void registerComplaint() {
+    if (complaintCount >= MAX_COMPLAINTS) { cout << "Complaint registry full.\n"; return; }
+    int id, citId, urgency; string type, desc;
+    cout << "Complaint ID: "; cin >> id;
+    cout << "Citizen ID: "; cin >> citId;
+    cin.ignore();
+    cout << "Type (Pothole/Streetlight/Garbage/WaterLeak/UnsafeSpace): "; getline(cin, type);
+    cout << "Description: "; getline(cin, desc);
+    cout << "Urgency (1-5): "; cin >> urgency;
+    complaints[complaintCount] = new Complaint(id, citId, type, desc, urgency); // dynamic allocation
+    complaints[complaintCount]->classify();
+    complaints[complaintCount]->calculatePriority();
+    complaintCount++;
+    cout << "Complaint registered & classified. Total complaints: "
+         << Complaint::getTotalComplaints() << " (Active: "
+         << Complaint::getActiveComplaints() << ")\n";
+}
+
+void assignComplaintToTeam() {
+    int id; cout << "Complaint ID to assign: "; cin >> id;
+    for (int i = 0; i < complaintCount; i++) {
+        if (complaints[i]->getId() == id) {
+            int idx = routeTeamIndex(complaints[i]->getType());
+            ResponseTeam* team = teams[idx];              // base-class pointer
+            complaints[i]->assignTeam(team->getTeamType());
+            team->respondToComplaint(*complaints[i]);      // virtual call -> runtime polymorphism
+            return;
+        }
+    }
+    cout << "Complaint not found.\n";
+}
+
+void updateComplaintStatus() {
+    int id; string newStatus;
+    cout << "Complaint ID: "; cin >> id;
+    cin.ignore();
+    cout << "New status (InProgress/Resolved): "; getline(cin, newStatus);
+    for (int i = 0; i < complaintCount; i++) {
+        if (complaints[i]->getId() == id) {
+            complaints[i]->updateStatus(newStatus);
+            cout << "Status updated. Active complaints: " << Complaint::getActiveComplaints() << "\n";
+            return;
+        }
+    }
+    cout << "Complaint not found.\n";
+}
+
+void compareComplaints() {
+    int id1, id2;
+    cout << "Complaint ID 1: "; cin >> id1;
+    cout << "Complaint ID 2: "; cin >> id2;
